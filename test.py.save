@@ -1,0 +1,96 @@
+import requests
+import re
+
+def get_kp_forecast():
+    url = 'https://services.swpc.noaa.gov/text/3-day-forecast.txt'
+    response = requests.get(url)
+    response.raise_for_status()  # 检查请求是否成功
+
+    data = response.text
+
+    # 使用正则表达式提取KP指数部分
+    kp_section_pattern = r'NOAA Kp index breakdown.*?B. NOAA Solar Radiation'
+    kp_section = re.search(kp_section_pattern, data, re.DOTALL)
+    if not kp_section:
+        print("无法找到KP指数预报部分")
+        return
+
+    kp_section_text = kp_section.group()
+
+    # 提取日期
+    dates_pattern = r'NOAA Kp index breakdown (.*?)\n'
+    dates_match = re.search(dates_pattern, kp_section_text)
+    if not dates_match:
+        print("无法找到日期信息")
+        return
+    #print("kp_section ",kp_section.group())
+    #print("kp_section_text ", kp_section_text)
+    #print(dates_match)
+    #print("dates_group0 ", dates_match.group(0))
+    #print("dates_group1 ", dates_match.group(1))
+    #print("dates_group_all ", dates_match.group())
+
+    # find the line with three dates
+    first_date = dates_match.group(1).split('-')[0]
+    three_dates_pattern = r'{} (.*?)\n'.format(re.escape(first_date))
+    three_dates_match = re.search(three_dates_pattern, kp_section_text)
+    three_dates_line = three_dates_match.group().strip()
+    print("match results:",three_dates_match.group())
+    ##dates = three_dates_line.split()
+    dates = re.split(r'\s{2,}', three_dates_line)
+    ##print("dates: ", dates)
+
+    # 提取KP值表格
+    kp_values_pattern = r'(?:\d{2}-\d{2}UT.*?)\n\n'
+    kp_values_match = re.findall(kp_values_pattern, kp_section_text, re.DOTALL)
+    if not kp_values_match:
+        print("无法找到KP值表格")
+        return
+
+    kp_table_text = kp_values_match[0]
+
+    # 解析KP值表格
+    lines = kp_table_text.strip().split('\n')
+    time_periods = []
+    kp_values = {date: [] for date in dates}
+    # open a new file and write down the forecast data
+    # 获取当前日期并格式化为字符串
+    current_date = datetime.now().strftime('%Y-%m-%d')
+    # 以当前日期为名创建csv文件
+    path_prefix = "~/projects/aurora/data/"
+    filename = f"{path_prefix}{current_date}.csv"
+    # 显式打开文件
+    file = open(filename, mode='w', newline='', encoding='utf-8')
+    writer = csv.writer(file)
+    writer.writerow(['date','D-day','D+1','D+2'])
+    for line in lines:
+        if line.startswith('00-03UT') or line.startswith('03-06UT') or line.startswith('06-09UT') or line.startswith('09-12UT') or line.startswith('12-15UT') or line.startswith('15-18UT') or line.startswith('18-21UT') or line.startswith('21-00UT'):
+            raw_parts = line.strip().split()
+            parts = [part for part in raw_parts if re.match(r'^-?\d+(\.\d+)?$', part)]
+            #print("Filtered KP parts:", parts)
+            if len(parts) == 3:
+                # write down data
+                writer.writerow([raw_parts[0],parts[0],parts[1],parts[2])
+                time_period = raw_parts[0] # time, e.g., '00-03UT'
+                time_periods.append(time_period)
+                for i, date in enumerate(dates):
+                    #print("i ",i, " date", date, "part length", len(parts))
+                    kp_value = parts[i]
+                    try:
+                        kp_v = float(kp_value)
+                    except ValueError:
+                        
+            else:
+                # throw error "the kp value detection failed to exactly capture a 3-day value, requiring further investigation. Detail: raw info:{raw_parts}, filtered info: {parts}"
+                continue # do nothing for now
+
+    # 打印结果
+    for date in dates:
+        print(f"日期：{date}")
+        for i, kp_value in enumerate(kp_values[date]):
+            print(f"  时段 {time_periods[i]}: Kp = {kp_value}")
+        print()
+
+if __name__ == "__main__":
+    get_kp_forecast()
+
