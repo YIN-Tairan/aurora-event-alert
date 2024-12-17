@@ -3,3 +3,4 @@ keypwd.json
 ./data/*
 ./venv
 ./venv/*
+./__pycache__/
