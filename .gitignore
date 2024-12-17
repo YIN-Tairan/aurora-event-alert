@@ -1,4 +1,5 @@
 keypwd.json
 ./data
 ./data/*
-
+./venv
+./venv/*
