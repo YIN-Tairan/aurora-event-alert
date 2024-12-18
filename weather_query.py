@@ -25,8 +25,9 @@ def get_weather_description(code, code_type="day"):
 # 查询天气预报的函数
 def get_weather_forecast(api_key, latitude, longitude, start_date, days):
     url = "https://api.tomorrow.io/v4/timelines"
-    start_time = datetime.strptime(start_date, "%Y-%m-%d").isoformat() + "Z"
+    start_time = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=1)).isoformat() + "Z"
     end_time = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=days)).isoformat() + "Z"
+    #print("start_time: ", start_time, "end_time: ", end_time)
 
     querystring = {
         "location": f"{latitude},{longitude}",
@@ -41,6 +42,25 @@ def get_weather_forecast(api_key, latitude, longitude, start_date, days):
     response = requests.get(url, params=querystring)
     if response.status_code == 200:
         data = response.json()
+        return data['data']['timelines'][0]['intervals']
+    else:
+        return f"Error: {response.status_code}, {response.json()}"
+    
+
+def get_weather_forecast2(api_key, latitude, longitude, start_date, days):
+    url = "https://api.tomorrow.io/v4/timelines"
+    url = f"https://api.tomorrow.io/v4/weather/forecast?location={latitude}%2C%20{longitude}&timesteps=1d&apikey={api_key}"
+    start_time = datetime.strptime(start_date, "%Y-%m-%d").isoformat() + "Z"
+    end_time = (datetime.strptime(start_date, "%Y-%m-%d") + timedelta(days=days)).isoformat() + "Z"
+    #print("start_time: ", start_time, "end_time: ", end_time)
+
+    headers = {"accept": "application/json"}
+
+    response = requests.get(url, headers=headers)
+    if response.status_code == 200:
+        data = response.json()
+        with open("weather.txt", "w") as file:
+            file.write(str(data))
         return data['data']['timelines'][0]['intervals']
     else:
         return f"Error: {response.status_code}, {response.json()}"
@@ -118,8 +138,10 @@ def process_weather_info(location, forecast):
 # 主函数
 def main():
     # api_key = "YOUR_API_KEY_HERE"
-    locations = load_locations("/home/ubuntu/projects/aurora/locations.json")
+    #locations = load_locations("/home/ubuntu/projects/aurora/locations.json")
+    locations = load_locations("./locations.json")
     start_date = datetime.now().strftime("%Y-%m-%d")  # 设定开始查询的日期
+    
     report_output = ""
     for location in locations:
         forecast = get_weather_forecast(
@@ -138,6 +160,8 @@ def main():
             report_output += f"Error fetching weather for {location['name']}: {forecast}\n"
             report_output += "=" * 40 + "\n"
         time.sleep(1)
+        break
+    #print(report_output)
     return report_output
 
 if __name__ == "__main__":

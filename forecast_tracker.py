@@ -198,7 +198,7 @@ def get_kp_forecast():
     # 获取当前日期并格式化为字符串
     current_date = datetime.now().strftime('%Y-%m-%d')
     # 以当前日期为名创建csv文件
-    path_prefix = "~/projects/aurora/data/"
+    path_prefix = "./data/"
     file_path = f"{path_prefix}{current_date}.csv"
     # 显式打开文件
     file_path = os.path.expanduser(file_path)
