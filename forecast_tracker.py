@@ -186,7 +186,7 @@ def get_kp_forecast():
     kp_values_pattern = r'(?:\d{2}-\d{2}UT.*?)\n\n'
     kp_values_match = re.findall(kp_values_pattern, kp_section_text, re.DOTALL)
     if not kp_values_match:
-        raise KPForCastError("无法找到KP值表格")
+        raise KPForecastError("无法找到KP值表格")
 
     kp_table_text = kp_values_match[0]
 
@@ -202,6 +202,7 @@ def get_kp_forecast():
     file_path = f"{path_prefix}{current_date}.csv"
     # 显式打开文件
     file_path = os.path.expanduser(file_path)
+    print(file_path)
     file = open(file_path, mode='w', newline='', encoding='utf-8')
     writer = csv.writer(file)
     writer.writerow(['date','D-Day','D+1','D+2'])
