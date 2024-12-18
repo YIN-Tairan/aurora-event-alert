@@ -1,6 +1,6 @@
 keypwd.json
-./data
+data/
 ./data/*
-./venv
+venv
 ./venv/*
-./__pycache__/
+__pycache__/
