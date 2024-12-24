@@ -160,7 +160,7 @@ def main():
             report_output += f"Error fetching weather for {location['name']}: {forecast}\n"
             report_output += "=" * 40 + "\n"
         time.sleep(1)
-        break
+        
     #print(report_output)
     return report_output
 
