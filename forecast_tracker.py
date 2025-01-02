@@ -251,7 +251,7 @@ if __name__ == "__main__":
         print(f"Error occurred: {error_message}")
         send_error_email(error_message, MailInfo.default_receiver_email)
 
-    weather_report_txt = weather_query.main()
+    weather_report_txt = weather_query.query_wether()
     text = text + "\n"*5 + weather_report_txt
 
     # for debug purpose

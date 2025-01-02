@@ -136,7 +136,7 @@ def process_weather_info(location, forecast):
 
     return condition_lvl, report_txt
 # 主函数
-def main():
+def query_wether():
     # api_key = "YOUR_API_KEY_HERE"
     #locations = load_locations("/home/ubuntu/projects/aurora/locations.json")
     locations = load_locations("./locations.json")
@@ -165,4 +165,4 @@ def main():
     return report_output
 
 if __name__ == "__main__":
-    main()
+    query_wether()
