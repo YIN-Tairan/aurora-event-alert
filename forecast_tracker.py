@@ -9,6 +9,7 @@ from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 import weather_query
 import json
+import argparse
 
 class KPForecastError(Exception):
     """Custom exception for KP forecast errors"""
@@ -241,9 +242,12 @@ def get_kp_forecast():
     file.close()
     return [kp5_detected, kp7_detected, response.text]
 
-if __name__ == "__main__":
+
+def main(check_weather=True, send_email=True):    
+    
+    text = ""
     try:
-        [kp5_bool, kp7_bool, text] = get_kp_forecast()
+        [kp5_bool, kp7_bool, noaa_txt] = get_kp_forecast()
         print("KP 5 detected:", kp5_bool)
         print("KP 7 detected:", kp7_bool)
     except KPForecastError as e:
@@ -251,17 +255,68 @@ if __name__ == "__main__":
         print(f"Error occurred: {error_message}")
         send_error_email(error_message, MailInfo.default_receiver_email)
 
-    weather_report_txt = weather_query.query_wether()
-    text = text + "\n"*5 + weather_report_txt
+
+    if check_weather:
+        weather_report_txt = weather_query.query_wether()
+    else:
+        weather_report_txt = ""
+
+
+    text = noaa_txt + "\n"*5 + weather_report_txt
 
     # for debug purpose
     #kp5_bool = True
     # end
-
-    send_highlight_email(kp5_bool, kp7_bool, text, MailInfo.default_receiver_email)
-    send_highlight_email(kp5_bool, kp7_bool, text, "yin.tairan@outlook.com")
+    if send_email:
+        send_highlight_email(kp5_bool, kp7_bool, text, MailInfo.default_receiver_email)
+        send_highlight_email(kp5_bool, kp7_bool, text, "yin.tairan@outlook.com")
+    # else do nothing
 
     if not kp5_bool and not kp7_bool:
         today = datetime.now()
         if today.weekday() == 6:
             send_report_email()
+
+def main_normal():
+    main()
+
+def main_debug(arg_list):
+    if "noEmail" in arg_list:
+        sendEmail = False
+        print("Debug mode: not sending email.")
+    else:
+        sendEmail = True
+
+    if "noWeather" in arg_list:
+        check_weather = False
+        print("Debug mode: not checking weather report.")
+    else:
+        check_weather = True
+    
+    main(send_email=sendEmail, check_weather=check_weather)
+    
+
+if __name__ == "__main__":
+    parser = argparse.ArgumentParser(description="示例：-n 或 -d [多个debug内容]")
+    group = parser.add_mutually_exclusive_group(required=True)
+
+    group.add_argument(
+        "-n", "--normal",
+        action="store_true",
+        help="normal 模式"
+    )
+
+    # nargs='+' 表示可以接收一个或多个参数，并作为list返回
+    group.add_argument(
+        "-d", "--debug",
+        nargs='+',
+        help="debug 模式，可以接收一个或多个调试参数"
+    )
+
+    args = parser.parse_args()
+
+    if args.normal:
+        main_normal()
+    elif args.debug:
+        main_debug(args.debug)  # 这是一个list
+
