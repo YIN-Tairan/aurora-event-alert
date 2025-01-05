@@ -292,6 +292,9 @@ def main_debug(arg_list):
         print("Debug mode: not checking weather report.")
     else:
         check_weather = True
+
+    if "failedCase" in arg_list:
+        raise Exception("[Debug] This is an faked error message.")
     
     main(send_email=sendEmail, check_weather=check_weather)
     
