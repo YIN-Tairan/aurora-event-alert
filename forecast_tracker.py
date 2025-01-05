@@ -298,7 +298,8 @@ def main_debug(arg_list):
 
 if __name__ == "__main__":
     parser = argparse.ArgumentParser(description="示例：-n 或 -d [多个debug内容]")
-    group = parser.add_mutually_exclusive_group(required=True)
+    #group = parser.add_mutually_exclusive_group(required=True)
+    group = parser.add_mutually_exclusive_group(required=False)
 
     group.add_argument(
         "-n", "--normal",
@@ -314,6 +315,10 @@ if __name__ == "__main__":
     )
 
     args = parser.parse_args()
+
+     # 如果没有输入任何参数，默认设置为 normal 模式
+    if not any(vars(args).values()):
+        args.normal = True
 
     if args.normal:
         main_normal()
