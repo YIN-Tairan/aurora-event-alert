@@ -1,0 +1,13 @@
+{
+    "time": 60,
+    "frequency": 5,
+    "KP": 5,
+    "spped": 600.0,
+    "HP_north": 60,
+    "HP_south": 55,
+    "proton_density": 15,
+    "addition_sent_to": [
+        "example1@gmail.com",
+        "example2@gmail.com"
+    ]
+}
