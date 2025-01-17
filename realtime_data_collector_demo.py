@@ -100,7 +100,7 @@ def insert_data_ignore(data, db_path="aurora_data.db"):
     # 将 DataFrame 转换为元组列表
     values = [
         (
-            row["datetime"], row["modified_julian_day"], row["seconds_of_day"], row["Status_x"],
+            row["Datetime"], row["modified_julian_day"], row["seconds_of_day"], row["Status_x"],
             row["proton_density"], row["bulk_speed"], row["ion_temperature"], row["Status_y"], row["bx"], row["by"],
             row["bz"], row["bt"], row["latitude"], row["longitude"], row["forecast"],
             row["north_hemi_power_index"], row["south_hemi_power_index"]
@@ -130,11 +130,7 @@ if __name__ == "__main__":
     print(merged_data.head())
 
     merged_data.to_csv("merged_data.csv", index=False)
-    print("数据已保存为 'merged_data.csv'")
-
-
     merged_data.rename(columns={
-        "Datetime": "datetime",
         "Modified Julian Day": "modified_julian_day",
         "Seconds of Day": "seconds_of_day",
         "Proton Density": "proton_density",
@@ -183,9 +179,13 @@ if __name__ == "__main__":
     row_count = cursor.fetchone()[0]
     # 打印结果
     print(f"数据库表中共有 {row_count} 条记录。")
-
+    # debug
+    cursor.execute("PRAGMA table_info(aurora_data)")
+    columns = cursor.fetchall()
+    for column in columns:
+        print(column)
     #merged_data.to_sql("aurora_data", conn, if_exists="append", index=False, method=)
-    merged_data['datetime'] = merged_data['datetime'].astype(str)
+    merged_data['Datetime'] = merged_data['Datetime'].astype(str)
     merged_data['forecast'] = merged_data['forecast'].astype(str)
     insert_data_ignore(merged_data)
 
@@ -194,6 +194,7 @@ if __name__ == "__main__":
 
     print("数据已成功插入数据库")
 
+    print("数据已保存为 'merged_data.csv'")
     #debug
     cursor.execute("SELECT COUNT(*) FROM aurora_data")
     row_count = cursor.fetchone()[0]
@@ -201,4 +202,32 @@ if __name__ == "__main__":
     print(f"数据库表中共有 {row_count} 条记录。")
 
 
+    # read sql
+    conn = sqlite3.connect("aurora_data.db")
+
+    cursor = conn.cursor()
+
+    query = """
+    SELECT datetime, proton_density
+    FROM aurora_data
+    WHERE datetime BETWEEN '2025-01-17 12:00:00' AND '2025-01-17 13:00:00'
+    ORDER BY datetime
+    """
+    # 将查询结果加载为 Pandas DataFrame
+    data = pd.read_sql_query(query, conn)
     
+
+    # 确保 datetime 是时间格式
+    data['datetime'] = pd.to_datetime(data['datetime'])
+    print(data.head)
+    
+    #data['forecast'] = pd.to_datetime(data['forecast'])
+    #for index, row in data.iterrows():
+    #    print(f"Row {index}: {row.to_dict()}")
+    #cursor.execute("SELECT * FROM aurora_data")
+    #rows = cursor.fetchall()
+
+    #for row in rows:
+    #    print(row)
+
+    conn.close()
