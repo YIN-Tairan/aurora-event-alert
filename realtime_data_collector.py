@@ -83,7 +83,8 @@ def merge_txt_data(data1, data2, data3):
 
     # 填充缺失值（如极光数据每5分钟记录一次，可用插值法补全）
     #merged_data.interpolate(method="linear", inplace=True)
-    merged_data.fillna(method="ffill", inplace=True)  # 前向填充
+    #merged_data.fillna(method="ffill", inplace=True)  # 前向填充
+    merged_data.ffill(inplace=True)
     return merged_data
 
 def insert_data_ignore(data, db_path="aurora_data.db"):
@@ -127,7 +128,7 @@ if __name__ == "__main__":
     #    print(line)
     merged_data = merge_txt_data(data1,data2,data3)
 
-    print(merged_data.head())
+    #print(merged_data.head())
 
     merged_data.to_csv("merged_data.csv", index=False)
     print("数据已保存为 'merged_data.csv'")
