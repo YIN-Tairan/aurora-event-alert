@@ -1,7 +1,10 @@
 import json
 import time
 import requests
+import pytz
+from timezonefinder import TimezoneFinder
 from datetime import datetime, timedelta
+
 from weatherCode import weatherCode, weatherCodeFullDay, weatherCodeDay, weatherCodeNight
 
 
@@ -108,11 +111,17 @@ good_visibility = {
 def process_weather_info(location, forecast):
     report_txt = f"Weather forecast for {location['name']}:\n"
     good_condition = []
-    condition_lvl = 0;
+    condition_lvl = "No interesting weather."
     for day in forecast:
         date = day['startTime'].split("T")[0]
+        # get time zone information
+        timezone = get_timezone(location['latitude'], location['longitude'])
+        #print(f"时区: {timezone}")
+        # get sunrise and sunset information
+        [sr_time, ss_time] = get_sunrise_sunset(location['latitude'], location['longitude'],date, timezone)
         values = day['values']
         report_txt += f"  Date: {date}\n"
+        report_txt += f"  Sunrise time: {sr_time}, sunset time: {ss_time}\n"
         report_txt += f"  Max Temperature: {values.get('temperatureMax')} °C\n"
         report_txt += f"  Min Temperature: {values.get('temperatureMin')} °C\n"
         report_txt += f"  Average Humidity: {values.get('humidityAvg')} %\n"
@@ -126,24 +135,57 @@ def process_weather_info(location, forecast):
         else:
             good_condition.append(False)
     gc = good_condition
-    if (len(gc)>=5 and gc[0] and gc[1] and gc[2] and gc[3] and gc[4]):
-        condition_lvl = 4
-    elif (len(gc)>=3 and gc[0] and gc[1] and gc[2]):
-        condition_lvl = 3
-    elif (len(gc)>=2 and gc[0] and gc[1]):
-        condition_lvl = 2
+    # at current stage, the weather info contains "today"'s nowcast (gc[0]) whereas the travel plan can only serce D+1 and D+2
+    if (len(gc)>=4 and gc[1] and gc[2] and gc[3]):
+        condition_lvl = "Incredible long duration good condition (more than 3 days)."
+    elif (len(gc)>=3 and gc[1] and gc[2]):
+        condition_lvl = "Two days of good weather starting from D+1."
+    elif (len(gc)>=2 and gc[1]):
+        condition_lvl = "D+1 (only) is expected to have a good weather."
+    elif (len(gc)>=2 and gc[2]):
+        condition_lvl = "D+2 (only) is expected to have a good weather."
+
+    # "today"'s weather is separately analysed here
+    if gc[0]:
+        condition_lvl += " Today: good."
+    else:
+        condition_lvl += " Today: not good."
 
 
     return condition_lvl, report_txt
+
+def get_sunrise_sunset(lat, lon, date="today", timezone='UTC'):
+    url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&date={date}&tzid={timezone}&formatted=1"
+    response = requests.get(url)
+    data = response.json()
+    return data['results']['sunrise'], data['results']['sunset']
+
+def is_daytime(sunrise, sunset, current_time):
+    return sunrise < current_time < sunset
+
+def get_timezone(lat, lon):
+    tf = TimezoneFinder()
+    timezone = tf.timezone_at(lat=lat, lng=lon)
+    if timezone:
+        return timezone
+    else:
+        raise Exception("时区未找到")
+
+
 # 主函数
 def query_wether():
     # api_key = "YOUR_API_KEY_HERE"
     #locations = load_locations("/home/ubuntu/projects/aurora/locations.json")
     locations = load_locations("./locations.json")
-    start_date = datetime.now().strftime("%Y-%m-%d")  # 设定开始查询的日期
+    default_timezone = pytz.timezone('UTC')
+    start_date = datetime.now(default_timezone).strftime("%Y-%m-%d")  # 设定开始查询的日期
+    
+
     
     report_output = ""
     for location in locations:
+        # Sunrise and sunset time
+
         forecast = get_weather_forecast(
             api_key,
             location["latitude"],
@@ -153,7 +195,7 @@ def query_wether():
         )
         if isinstance(forecast, list):
             [c,t] = process_weather_info(location, forecast)
-            report_output += f"Condition level {c} for {location['name']}\n"
+            report_output += f"Destination: {location['name']}\n  Weather condition in short: {c}\n"
             report_output += t
             report_output += "=" * 40 +"\n"
         else:
@@ -165,4 +207,5 @@ def query_wether():
     return report_output
 
 if __name__ == "__main__":
-    query_wether()
+    report = query_wether()
+    print(report)
