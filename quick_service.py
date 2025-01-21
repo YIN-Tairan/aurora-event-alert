@@ -48,7 +48,6 @@ def arriving_solar_wind(db_path="aurora_data.db", timezone="UTC"):
 
         # 将数据转换为字典
         entry = dict(zip(columns, result))
-        print(entry)
 
         # 解析时间并转换为指定时区
         tz = pytz.timezone(timezone)
