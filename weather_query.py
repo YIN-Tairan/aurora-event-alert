@@ -118,10 +118,10 @@ def process_weather_info(location, forecast):
         timezone = get_timezone(location['latitude'], location['longitude'])
         #print(f"时区: {timezone}")
         # get sunrise and sunset information
-        [sr_time, ss_time] = get_sunrise_sunset(location['latitude'], location['longitude'],date, timezone)
+        [sr_time, ss_time,_,_,day_lenth] = get_sunrise_sunset(location['latitude'], location['longitude'],date, timezone)
         values = day['values']
         report_txt += f"  Date: {date}\n"
-        report_txt += f"  Sunrise time: {sr_time}, sunset time: {ss_time}\n"
+        report_txt += f"  Sunrise time: {sr_time}, sunset time: {ss_time}, daytime length: {day_lenth} hours\n"
         report_txt += f"  Max Temperature: {values.get('temperatureMax')} °C\n"
         report_txt += f"  Min Temperature: {values.get('temperatureMin')} °C\n"
         report_txt += f"  Average Humidity: {values.get('humidityAvg')} %\n"
@@ -158,7 +158,9 @@ def get_sunrise_sunset(lat, lon, date="today", timezone='UTC'):
     url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&date={date}&tzid={timezone}&formatted=1"
     response = requests.get(url)
     data = response.json()
-    return data['results']['sunrise'], data['results']['sunset']
+    # before and after astronomical twilight's begin and end: sun beneath -18 degree -> pure dark
+    # note that it's also possible to use nautical twilight time (sun between -12 and -6 degree)
+    return data['results']['sunrise'], data['results']['sunset'], data['results']['astronomical_twilight_begin'], data['results']['astronomical_twilight_end'], data['results']['day_length']
 
 def is_daytime(sunrise, sunset, current_time):
     return sunrise < current_time < sunset
