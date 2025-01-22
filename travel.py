@@ -129,14 +129,25 @@ def search_cheapest_flight(token,origin, destination, departure_date, days=3, ma
                     "价格 (EUR)": price,
                     "航班详情": parse_flight_details(offer)
                 }
+
                 print(text_summary(flight_info))
         #return cheapest_flight
     else:
         raise Exception(f"航班搜索失败: {response.status_code} - {response.text}")
+    
+
+def flight_query(origin,dst,starting_date, range_of_days):
+    # take as input the 3-letter code of departure and arrival airports, the range of days that you want to 
+    # stay there, e.g. [3,4,5] means you are okay with staying either 3, 4 or 5 days at your destination
+    # return a text summary of available flights: shortest duration, or cheapest price, or best compromise between the two factors, etc
+
+    # TODO: add content here
+    return
+
 
 # 主程序
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="Quick Service CLI Tool")
+    parser = argparse.ArgumentParser(description="")
     parser.add_argument("-tk", "--token", required=False, default="" ,help="Provide existing token if you have one")
 
     args = parser.parse_args()
