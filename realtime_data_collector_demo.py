@@ -53,7 +53,11 @@ def crop_txt_header(txt):
 
 def extract_txt_table(txt, columns):
     
-    data = pd.DataFrame([line.split() for line in txt], columns=columns)
+    #data = pd.DataFrame([line.split() for line in txt], columns=columns)
+    valid_data = [
+        line.split() for line in txt if len(line.split()) == len(columns)
+    ]
+    data = pd.DataFrame(valid_data, columns=columns)
     # remove the last line which is none none none none
     data = data.dropna(how="all")
     return data

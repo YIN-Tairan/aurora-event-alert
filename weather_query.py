@@ -112,6 +112,7 @@ def process_weather_info(location, forecast):
     report_txt = f"Weather forecast for {location['name']}:\n"
     good_condition = []
     condition_lvl = "No interesting weather."
+    condition_code = 0
     for day in forecast:
         date = day['startTime'].split("T")[0]
         # get time zone information
@@ -138,12 +139,16 @@ def process_weather_info(location, forecast):
     # at current stage, the weather info contains "today"'s nowcast (gc[0]) whereas the travel plan can only serce D+1 and D+2
     if (len(gc)>=4 and gc[1] and gc[2] and gc[3]):
         condition_lvl = "Incredible long duration good condition (more than 3 days)."
+        condition_code = 3
     elif (len(gc)>=3 and gc[1] and gc[2]):
         condition_lvl = "Two days of good weather starting from D+1."
+        condition_code = 2
     elif (len(gc)>=2 and gc[1]):
         condition_lvl = "D+1 (only) is expected to have a good weather."
+        condition_code = 1
     elif (len(gc)>=2 and gc[2]):
         condition_lvl = "D+2 (only) is expected to have a good weather."
+        condition_code = 1
 
     # "today"'s weather is separately analysed here
     if gc[0]:
@@ -152,7 +157,7 @@ def process_weather_info(location, forecast):
         condition_lvl += " Today: not good."
 
 
-    return condition_lvl, report_txt
+    return condition_code, condition_lvl, report_txt
 
 def get_sunrise_sunset(lat, lon, date="today", timezone='UTC'):
     url = f"https://api.sunrise-sunset.org/json?lat={lat}&lng={lon}&date={date}&tzid={timezone}&formatted=1"
@@ -196,7 +201,7 @@ def query_wether():
             location["time_span"]
         )
         if isinstance(forecast, list):
-            [c,t] = process_weather_info(location, forecast)
+            [_, c,t] = process_weather_info(location, forecast)
             report_output += f"Destination: {location['name']}\n  Weather condition in short: {c}\n"
             report_output += t
             report_output += "=" * 40 +"\n"
