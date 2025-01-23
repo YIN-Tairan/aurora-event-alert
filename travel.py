@@ -136,7 +136,7 @@ def search_cheapest_flight(token,origin, destination, departure_date, days=3, ma
         raise Exception(f"航班搜索失败: {response.status_code} - {response.text}")
     
 
-def flight_query(origin,dst,starting_date, range_of_days):
+def flight_query(token, origin,dst,starting_date, range_of_days):
     # take as input the 3-letter code of departure and arrival airports, the range of days that you want to 
     # stay there, e.g. [3,4,5] means you are okay with staying either 3, 4 or 5 days at your destination
     # return a text summary of available flights: shortest duration, or cheapest price, or best compromise between the two factors, etc
