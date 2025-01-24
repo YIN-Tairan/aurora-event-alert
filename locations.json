@@ -4,25 +4,33 @@
       "name": "Kiruna",
       "latitude": 67.8518066,
       "longitude": 20.243812,
-      "time_span": 5
+      "time_span": 5,
+      "airport_code": "KRN",
+      "max_layover": "2"
     },
     {
       "name": "Tromso",
       "latitude": 69.6516345,
       "longitude": 18.9558585,
-      "time_span": 5
+      "time_span": 5,
+      "airport_code": "TOS",
+      "max_layover": "2"
     },
     {
       "name": "Reykjavik",
       "latitude": 64.145981,
       "longitude": -21.9422367,
-      "time_span": 5
+      "time_span": 5,
+      "airport_code": "KEF",
+      "max_layover": "2"
     },
     {
       "name": "Rovaniemi",
       "latitude": 66.50173,
       "longitude": 25.91503,
-      "time_span": 5
+      "time_span": 5,
+      "airport_code": "RVN",
+      "max_layover": "2"
      },
      {
       "name": "Mohe",

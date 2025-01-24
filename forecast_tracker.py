@@ -10,6 +10,7 @@ from email.mime.multipart import MIMEMultipart
 import weather_query
 import json
 import argparse
+import numpy as np
 
 class KPForecastError(Exception):
     """Custom exception for KP forecast errors"""
@@ -141,6 +142,46 @@ def send_report_email():
     finally:
         server.quit()
 
+def parse_and_complete_date(month_day_str, current_date=None):
+    """
+    将 'Jan 25' 格式的日期补全年份，并转换为 'yyyy-mm-dd'。
+    补全年份的逻辑：
+      - 如果当前月份是 12 月且目标月份是 1 月，年份设为下一年。
+      - 其他情况年份设为当前年。
+    
+    :param month_day_str: 输入的月日字符串，如 'Jan 25'
+    :param current_date: 当前日期（默认为当前系统时间）
+    :return: 格式化的完整日期字符串，如 '2025-01-25'
+    """
+    # 如果没有指定当前日期，则使用系统当前时间
+    if current_date is None:
+        current_date = datetime.now()
+    
+    # 解析输入的月日字符串
+    try:
+        parsed_date = datetime.strptime(f"{month_day_str} 2000", "%b %d %Y")
+    except ValueError:
+        raise ValueError("日期格式错误，应为 'MMM DD'（如 'Jan 25'）")
+    
+    target_month = parsed_date.month
+    target_day = parsed_date.day
+    current_year = current_date.year
+    current_month = current_date.month
+    
+    # 判断是否需要将年份设为下一年
+    if current_month == 12 and target_month == 1:
+        year = current_year + 1
+    else:
+        year = current_year
+    
+    # 尝试构建日期，处理无效日期（如闰年2月29日）
+    try:
+        final_date = datetime(year, target_month, target_day)
+    except ValueError as e:
+        raise ValueError(f"无效日期: {year}-{target_month:02d}-{target_day:02d}") from e
+    
+    return final_date.strftime("%Y-%m-%d")
+
 
 def get_kp_forecast():
     url = 'https://services.swpc.noaa.gov/text/3-day-forecast.txt'
@@ -204,6 +245,12 @@ def get_kp_forecast():
     # 显式打开文件
     file_path = os.path.expanduser(file_path)
     print(file_path)
+
+    # create an array to store kp value
+    kp_matrix = np.zeros([8,3])
+    line_idx = 0
+
+    # create a file to save the text kp forecast
     file = open(file_path, mode='w', newline='', encoding='utf-8')
     writer = csv.writer(file)
     writer.writerow(['date','D-Day','D+1','D+2'])
@@ -223,33 +270,56 @@ def get_kp_forecast():
                     try:
                         kp_value = float(kp_string)
                     except ValueError:
-                        raise KPForecastError(f"Failed to open file: {e}")
+                        raise KPForecastError(f"Cannot convert the kp_value string into float, kp_value is {kp_value} but is supposed to be a string of float")
+                    
+                    #store the kp value in kp_matrix[line_idx,i]
+                    kp_matrix[line_idx, i] = kp_value
 
-                    if kp_value>=5:
-                        kp5_detected = True
-                    if kp_value>=7:
-                        kp7_detected = True
+
+                    #if kp_value>=5:
+                    #    kp5_detected = True
+                    #if kp_value>=7:
+                    #    kp7_detected = True
+
+                line_idx += 1
             else:
                 raise KPForecastError(f"Failed to exactly capture a 3-day value: {raw_parts}, filtered: {parts}")
                 # throw error "the kp value detection failed to exactly capture a 3-day value, requiring further investigation. Detail: raw info:{raw_parts}, filtered info: {parts}"
 
-    # 打印结果
-    #for date in dates:
-    #    print(f"日期：{date}")
-    #    for i, kp_value in enumerate(kp_values[date]):
-    #        print(f"  时段 {time_periods[i]}: Kp = {kp_value}")
-    #    print()
     file.close()
-    return [kp5_detected, kp7_detected, response.text]
 
+    # check the presence of kp5 and kp7m (7m: 7 minus, i.e., >=6.67)
+    interesting_dates = []
+    for i, date in enumerate(dates):
+        if (kp_matrix[:,i]>5).any():
+            kp5_detected = True
+            interesting_dates.append(parse_and_complete_date(date))
+        if (kp_matrix[:,i]>7).any():
+            kp7_detected = True
+        
+        
+    return [kp5_detected, kp7_detected, response.text, interesting_dates]
 
-def main(check_weather=True, send_email=True):    
+def replace_date_with_annotation(original_str, target_date):
+    """
+    将目标日期替换为 "yyyy-mm-dd is DATE OF INTEREST"。
+    示例：
+       输入：原文字符串 = "事件发生在 2025-01-25", 目标日期 = "2025-01-25"
+       输出：事件发生在 2025-01-25 is DATE OF INTEREST
+    """
+    # 直接替换目标日期字符串
+    #print("origin txt:", original_str)
+    #print("modified txt: ", original_str.replace(target_date, f"{target_date} is DATE OF INTEREST"))
+    return original_str.replace(target_date, f"{target_date}(DATE OF KP) ")
+
+def main(check_weather=True, send_email=True, print_report=False):    
     
     text = ""
     try:
-        [kp5_bool, kp7_bool, noaa_txt] = get_kp_forecast()
+        [kp5_bool, kp7_bool, noaa_txt, interesting_dates] = get_kp_forecast()
         print("KP 5 detected:", kp5_bool)
         print("KP 7 detected:", kp7_bool)
+        print("interesting dates are: ", interesting_dates)
     except KPForecastError as e:
         error_message = str(e)
         print(f"Error occurred: {error_message}")
@@ -260,10 +330,14 @@ def main(check_weather=True, send_email=True):
         weather_report_txt = weather_query.query_wether()
     else:
         weather_report_txt = ""
+    for date in interesting_dates:
+        weather_report_txt = replace_date_with_annotation(weather_report_txt,date)
 
 
     text = noaa_txt + "\n"*5 + weather_report_txt
 
+    if print_report:
+        print(text)
     # for debug purpose
     #kp5_bool = True
     # end
@@ -293,10 +367,14 @@ def main_debug(arg_list):
     else:
         check_weather = True
 
+    if "report":
+        print_report=True
+
     if "failedCase" in arg_list:
         raise Exception("[Debug] This is an faked error message.")
     
-    main(send_email=sendEmail, check_weather=check_weather)
+    
+    main(send_email=sendEmail, check_weather=check_weather, print_report=print_report)
     
 
 if __name__ == "__main__":
