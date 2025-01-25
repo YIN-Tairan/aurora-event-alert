@@ -443,7 +443,7 @@ def main(check_weather=True, send_email=True, flight_query=True, print_report=Fa
 
 
 
-    text = noaa_txt + "\n"*5 + weather_report_txt + "\n"*5 + flight_query_txt
+    text = noaa_txt + "\n"*5 + weather_report_txt + "\n"*3 + flight_query_txt + "////End of Report\n////"
 
     if print_report:
         print(text)
@@ -476,6 +476,11 @@ def main_debug(arg_list):
     else:
         check_weather = True
 
+    if "noFlight" in arg_list:
+        flight_query = False
+    else:
+        flight_query = True
+
     if "report" in arg_list:
         print("Debug mode: the txt report will be printed to terminal")
         print_report=True
@@ -484,7 +489,7 @@ def main_debug(arg_list):
         raise Exception("[Debug] This is an faked error message.")
     
     
-    main(send_email=sendEmail, check_weather=check_weather, print_report=print_report)
+    main(send_email=sendEmail, check_weather=check_weather, flight_query=flight_query,print_report=print_report)
     
 
 if __name__ == "__main__":
