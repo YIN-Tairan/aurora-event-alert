@@ -15,12 +15,14 @@ def load_api_key(file_path):
         data = json.load(file)
     return data["amadeus_key"], data["amadeus_secret"]
 
+[CLIENT_ID, CLIENT_SECRET] = load_api_key("keypwd.json")
+
 # Step 1: 获取 OAuth2 访问令牌
 def get_access_token():
     headers = {
         "Content-Type": "application/x-www-form-urlencoded"
     }
-    [CLIENT_ID, CLIENT_SECRET] = load_api_key("keypwd.json")
+    
     data = {
         "grant_type": "client_credentials",
         "client_id": CLIENT_ID,
@@ -177,7 +179,7 @@ def search_flight(token,origin, destination, departure_date, days=3, max_price=4
         "departureDate": departure_date,
         "returnDate": f"{return_date_start.strftime('%Y-%m-%d')}",#--{return_date_end.strftime('%Y-%m-%d')}",
         "adults": 1,
-        "max": 50  # 最多返回 个结果
+        "max": 150  # 最多返回 个结果
     }
     
     response = requests.get(FLIGHT_SEARCH_URL, headers=headers, params=params)
@@ -195,40 +197,44 @@ def search_flight(token,origin, destination, departure_date, days=3, max_price=4
             offer['price_mark'] = float(offer['price']['total'])  # 总价格
             print(f"Debug: segments: {offer['segments_count']}, total hours: {offer['total_hours']}, total price: {offer['price_mark']}")
         
+        # filter
+        filtered_offers = list(filter(
+            lambda x: (
+                x['segments_count'] <= max_layover and  # 航段数不超过
+                x['total_hours'] <= max_duration and    # 旅途时长不超过
+                x['price_mark'] <= max_price             # 价格不超过
+            ),
+            flight_offers["data"]
+        ))
         # 三阶排序
         sorted_offers = sorted(
-            flight_offers["data"],
+            filtered_offers,
             key=lambda x: (x['segments_count'], x['total_hours'], x['price_mark'])
         )
 
-        
+        offer_count = 0
+        short_summary = ""
+        full_summary = ""
         for offer in sorted_offers:
-            price = float(offer["price"]["total"])
-            if price>max_price:
-                continue
-            itineraries = offer['itineraries']
-            print("debug: printing itinaries", itineraries)
-            iti_stops = []
-            iti_duration = []
-            for idx,itinerary in enumerate(itineraries):
-                [stops, duration] = process_segments_and_duration(itinerary)
-                iti_stops.append(stops)
-                iti_stops.append(duration)
-                print(f"itineray {idx}: stop number: {stops}, duration: {duration}")
-                
-            #if cheapest_flight is None or price < cheapest_flight["价格 (EUR)"]:
-            if True:
-                flight_info = { # cheapest_flight = ...
-                    "出发日期": departure_date,
-                    "返程日期": offer["itineraries"][1]["segments"][0]["departure"]["at"][:10],
-                    "价格 (EUR)": price,
-                    "航班详情": parse_flight_details(offer)
-                }
+            offer_count += 1
+            
+            flight_info = { # cheapest_flight = ...
+                "出发日期": departure_date,
+                "返程日期": offer["itineraries"][1]["segments"][0]["departure"]["at"][:10],
+                "价格 (EUR)": offer["price"]["total"],
+                "航班详情": parse_flight_details(offer)
+            }
 
-                print(text_summary(flight_info))
-        #return cheapest_flight
+            flight_summary = text_summary(flight_info)
+
+            if offer_count <= 10:
+                short_summary += flight_summary
+            full_summary += flight_summary
+        return short_summary, full_summary
+
     else:
         raise Exception(f"航班搜索失败: {response.status_code} - {response.text}")
+    
     
 
 def flight_query(token, origin,dst,starting_dates, range_of_days, timezone=pytz.timezone('utc')):
@@ -236,16 +242,25 @@ def flight_query(token, origin,dst,starting_dates, range_of_days, timezone=pytz.
     # stay there, e.g. [3,4,5] means you are okay with staying either 3, 4 or 5 days at your destination
     # return a text summary of available flights: shortest duration, or cheapest price, or best compromise between the two factors, etc
     requests_number = len(starting_dates) * len(range_of_days)
-    warn_txt = f""
+    email_report=f"Flight offer between {origin} and {dst}: \n"+"Email version (for full report, check on the server)\n" + "="*30 +"\n"
+    full_report=f"Flight offer between {origin} and {dst}: \n" + "Full report\n" + "="*30 + "\n"
+
     for date in starting_dates:
         if date == datetime.now(timezone).strftime("%Y-%m-%d"):
             warn_txt += f"Warning: You're trying to search a flight departing on the same day you are right now: {date}\n"
+        email_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
+        full_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
         for duration in range_of_days:
-            return
+            [short_summary, full_summary] = search_flight(token, origin, dst, date, duration)
 
+            email_report += short_summary
+            email_report += "#"*30 +"\n"
+
+            full_report += full_summary
+            full_report += "#"*30 +"\n"
     
     # TODO: add content here
-    return
+    return email_report, full_report, requests_number
 
 
 # 主程序
@@ -275,18 +290,10 @@ if __name__ == "__main__":
     #destination = get_airport_code(destination_city, token)
     #print(f"目的地机场代码: {destination}")
     # Step 3: 搜索最低价航班
-    result = search_flight(token, origin, destination, departure_date)
-    print("\n最低价航班信息:")
-    print(f"出发日期: {result['出发日期']}")
-    print(f"返程日期: {result['返程日期']}")
-    print(f"价格 (EUR): {result['价格 (EUR)']}")
-    print("\n航班详情:")
-    for segment in result["航班详情"]:
-        print(f"出发机场: {segment['出发机场']}, 到达机场: {segment['到达机场']}")
-        print(f"起飞时间: {segment['起飞时间']}, 降落时间: {segment['降落时间']}")
-        print(f"航空公司: {segment['航空公司']}, 航班号: {segment['航班号']}")
-        print(f"航段时长: {segment['航段时长']}")
-        print("-" * 40)
-        
-    #except Exception as e:
-    #    print(f"程序出错: {e}")
+    [short_result, full_result] = search_flight(token, origin, destination, departure_date)
+    print(short_result)
+    import time
+    time.sleep(180)
+    print(full_result)
+
+    
