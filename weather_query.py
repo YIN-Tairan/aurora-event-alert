@@ -201,7 +201,8 @@ def query_wether():
             location["time_span"]
         )
         if isinstance(forecast, list):
-            [_, c,t] = process_weather_info(location, forecast)
+            [cond_code, c,t] = process_weather_info(location, forecast)
+            location["forecast_condition_code"] = cond_code
             report_output += f"Destination: {location['name']}\n  Weather condition in short: {c}\n"
             report_output += t
             report_output += "=" * 40 +"\n"
@@ -211,7 +212,7 @@ def query_wether():
         time.sleep(1)
         
     #print(report_output)
-    return report_output
+    return report_output, locations
 
 if __name__ == "__main__":
     report = query_wether()
