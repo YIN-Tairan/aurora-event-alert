@@ -21,6 +21,19 @@ def load_email_pwd(file_path):
         data = json.load(file)
     return data["smtppwd"]
 
+def save_string_to_txt(content, file_path):
+    """
+    将字符串保存为txt文件
+    :param content: 要保存的字符串内容
+    :param file_path: 文件保存路径（包括文件名，如"output.txt"）
+    """
+    try:
+        with open(file_path, 'w', encoding='utf-8') as file:
+            file.write(content)
+        print(f"文件已成功保存至: {file_path}")
+    except Exception as e:
+        print(f"保存文件时出错: {e}")
+
 class MailInfo:
     sender_email = "tairan.yin.csdr@gmail.com"
     default_receiver_email = "optimus.pascal.yin@gmail.com"
