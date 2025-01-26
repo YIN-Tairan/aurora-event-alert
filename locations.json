@@ -31,12 +31,6 @@
       "time_span": 5,
       "airport_code": "RVN",
       "max_layover": "2"
-     },
-     {
-      "name": "Mohe",
-      "latitude": 122.37,
-      "longitude": 53.48,
-      "time_span": 5
      }
   ]
 }

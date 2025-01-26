@@ -2,7 +2,8 @@
 import requests
 import re
 import csv
-from datetime import datetime
+from datetime import datetime, timedelta, date
+import pytz
 import os
 import smtplib
 from email.mime.text import MIMEText
@@ -11,6 +12,8 @@ import weather_query
 import json
 import argparse
 import numpy as np
+import travel
+
 
 class KPForecastError(Exception):
     """Custom exception for KP forecast errors"""
@@ -325,7 +328,56 @@ def replace_date_with_annotation(original_str, target_date):
     #print("modified txt: ", original_str.replace(target_date, f"{target_date} is DATE OF INTEREST"))
     return original_str.replace(target_date, f"{target_date}(DATE OF KP) ")
 
-def main(check_weather=True, send_email=True, print_report=False):    
+def flight_query_js_process(js_dict):
+    # this js_dict is a modified "locations.js" provided by weather_query
+    good_condition_dst = []
+    for location in js_dict:
+        condition_code = location["forecast_condition_code"]
+        if condition_code>0:
+            good_condition_dst.append(location["airport_code"])
+    return good_condition_dst
+
+def previous_day(input_date_str):
+    # 将输入的字符串转换为日期对象
+    input_date = datetime.strptime(input_date_str, "%Y-%m-%d").date()
+    previous_day = input_date - timedelta(days=1)
+    
+    # 获取当前日期
+    tz = pytz.timezone('utc')
+    current_date = datetime.now(tz).date()
+    if previous_day < current_date:
+        print(f"Warning: the date {previous_day} is discard being earlier than today")
+        return None
+    else:
+        return previous_day.strftime("%Y-%m-%d")
+    
+def local_flight_info_exist():
+    file_path = "flight_info.txt"
+    
+    # 检查文件是否存在
+    if not os.path.exists(file_path):
+        return False
+    
+    try:
+        # 读取文件第一行
+        with open(file_path, "r", encoding="utf-8") as f:
+            first_line = f.readline().strip()
+    except Exception as e:  # 处理权限错误、文件损坏等异常
+        print(f"Error reading file: {e}")
+        return False
+    
+    # 获取当前UTC日期字符串
+    try:
+        utc_date = datetime.now(pytz.utc).date().strftime("%Y-%m-%d")
+    except Exception as e:
+        print(f"Error getting UTC date: {e}")
+        return False
+    
+    # 比较并返回结果
+    return first_line == utc_date
+
+
+def main(check_weather=True, send_email=True, flight_query=True, print_report=False):    
     
     text = ""
     try:
@@ -340,14 +392,58 @@ def main(check_weather=True, send_email=True, print_report=False):
 
 
     if check_weather:
-        weather_report_txt = weather_query.query_wether()
+        [weather_report_txt, locations_js] = weather_query.query_wether()
     else:
         weather_report_txt = ""
     for date in interesting_dates:
         weather_report_txt = replace_date_with_annotation(weather_report_txt,date)
 
+    if flight_query and check_weather: # flight query requires the js_dict output provided by weather query
+        if not local_flight_info_exist():
+            short_summary = datetime.now(pytz.timezone('utc')).date().strftime("%Y-%m-%d") + "\n"
+            long_summary = datetime.now(pytz.timezone('utc')).date().strftime("%Y-%m-%d") + "\n"
+            origin = "CDG" # The default departure airport is CDG
+            dst_airport_code = flight_query_js_process(locations_js)
+            duration = [3,4,5]
+            start_dates = []
+            for date in interesting_dates:
+                d_minus_1 = previous_day(date)
+                if d_minus_1 is not None:
+                    start_dates.append(d_minus_1)
+                    print(f"Debug: flight query will take {d_minus_1} into the search")
+            api_calls_count = 0
+            for dst in dst_airport_code:
+                # the flight query function takes a list of start time and a list of possible durations, but one destination at a time
+                [short_report, long_report, call_count] = travel.flight_query(origin, dst, start_dates, duration)
+                api_calls_count += call_count
+                short_summary += short_report
+                long_summary += long_report
+            
+            flight_query_txt = short_summary
+            with open ("flight_info.txt", "w", encoding="utf-8") as f:
+                f.write(long_summary)
+            with open ("flight_info_email.txt", "w", encoding="utf-8") as fe:
+                fe.write(short_summary)
+            print(f"Total api calls during this query: {api_calls_count}")
+        else:
+            with open ("flight_info_email.txt", "r", encoding="utf-8") as fe:
+                flight_query_txt = fe.read()
+            print("Amadeus API is not used in the flight query. Using local flight offers report created earlier this day.")
+    elif not check_weather:
+        print("Warning: the flight query is ignored because the weather query is not activated")
+        flight_query_txt = ""
 
-    text = noaa_txt + "\n"*5 + weather_report_txt
+
+        
+
+                
+
+
+       
+
+
+
+    text = noaa_txt + "\n"*5 + weather_report_txt + "\n"*3 + flight_query_txt + "////End of Report\n////"
 
     if print_report:
         print(text)
@@ -380,14 +476,20 @@ def main_debug(arg_list):
     else:
         check_weather = True
 
-    if "report":
+    if "noFlight" in arg_list:
+        flight_query = False
+    else:
+        flight_query = True
+
+    if "report" in arg_list:
+        print("Debug mode: the txt report will be printed to terminal")
         print_report=True
 
     if "failedCase" in arg_list:
         raise Exception("[Debug] This is an faked error message.")
     
     
-    main(send_email=sendEmail, check_weather=check_weather, print_report=print_report)
+    main(send_email=sendEmail, check_weather=check_weather, flight_query=flight_query,print_report=print_report)
     
 
 if __name__ == "__main__":
@@ -407,6 +509,8 @@ if __name__ == "__main__":
         nargs='+',
         help="debug 模式，可以接收一个或多个调试参数"
     )
+
+    
 
     args = parser.parse_args()
 

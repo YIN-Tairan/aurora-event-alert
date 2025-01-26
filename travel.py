@@ -119,8 +119,6 @@ def search_cheapest_flight(token,origin, destination, departure_date, days=3):
         if not data.get("data"):
             raise Exception("未找到符合条件的航班")
         
-        # 解析所有航班并找到最低价
-        cheapest_flight = None
         for offer in data["data"]:
             price = float(offer["price"]["total"])
             #if cheapest_flight is None or price < cheapest_flight["价格 (EUR)"]:
@@ -237,7 +235,7 @@ def search_flight(token,origin, destination, departure_date, days=3, max_price=4
     
     
 
-def flight_query(token, origin,dst,starting_dates, range_of_days, timezone=pytz.timezone('utc')):
+def flight_query(origin,dst,starting_dates, range_of_days, token=get_access_token(), timezone=pytz.timezone('utc')):
     # take as input the 3-letter code of departure and arrival airports, the range of days that you want to 
     # stay there, e.g. [3,4,5] means you are okay with staying either 3, 4 or 5 days at your destination
     # return a text summary of available flights: shortest duration, or cheapest price, or best compromise between the two factors, etc
@@ -248,9 +246,11 @@ def flight_query(token, origin,dst,starting_dates, range_of_days, timezone=pytz.
     for date in starting_dates:
         if date == datetime.now(timezone).strftime("%Y-%m-%d"):
             warn_txt += f"Warning: You're trying to search a flight departing on the same day you are right now: {date}\n"
-        email_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
-        full_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
+        #email_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
+        #full_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
         for duration in range_of_days:
+            email_report += "*" * 30 + "\n" + f"Departure: {date}, stay {duration} days\n" + "*"*30 + "\n"
+            full_report += "*" * 30 + "\n" + f"Departure: {date}, stay {duration} days\n" + "*"*30 + "\n"
             [short_summary, full_summary] = search_flight(token, origin, dst, date, duration)
 
             email_report += short_summary
@@ -263,12 +263,13 @@ def flight_query(token, origin,dst,starting_dates, range_of_days, timezone=pytz.
     return email_report, full_report, requests_number
 
 
+
 # 主程序
 if __name__ == "__main__":
-    parser = argparse.ArgumentParser(description="")
-    parser.add_argument("-tk", "--token", required=False, default="" ,help="Provide existing token if you have one")
+    #parser = argparse.ArgumentParser(description="")
+    #parser.add_argument("-tk", "--token", required=False, default="" ,help="Provide existing token if you have one")
 
-    args = parser.parse_args()
+    #args = parser.parse_args()
 
     #try:
         # 输入参数
@@ -278,22 +279,17 @@ if __name__ == "__main__":
     timezone = pytz.timezone('UTC')
     departure_date = (datetime.now(timezone)+timedelta(days=1)).strftime("%Y-%m-%d")#input("请输入出发日期（YYYY-MM-DD）：")
     
-    # Step 1: 获取访问令牌
-    if args.token == "":
-        token = get_access_token()
-        print("访问令牌获取成功！")
-    else:
-        token = args.token
-        print("using manually provided token")
     
     # Step 2: 获取目的地机场代码
     #destination = get_airport_code(destination_city, token)
     #print(f"目的地机场代码: {destination}")
     # Step 3: 搜索最低价航班
-    [short_result, full_result] = search_flight(token, origin, destination, departure_date)
-    print(short_result)
-    import time
-    time.sleep(180)
-    print(full_result)
+    #[short_result, full_result] = search_flight(origin, destination, departure_date, token=token)
+    #[short_result, full_result,requests_count] = flight_query(origin, destination, [departure_date], [3,5])
+    #print(short_result)
+    #import time
+    #time.sleep(180)
+    #print(f"total request count: {requests_count}")
+    #print(full_result)
 
     
