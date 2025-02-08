@@ -291,7 +291,7 @@ def get_kp_forecast():
                     #store the kp value in kp_matrix[line_idx,i]
                     kp_matrix[line_idx, i] = kp_value
 
-
+                    # this part is removed because a newer detection logic has been used further below
                     #if kp_value>=5:
                     #    kp5_detected = True
                     #if kp_value>=7:
@@ -306,11 +306,15 @@ def get_kp_forecast():
 
     # check the presence of kp5 and kp7m (7m: 7 minus, i.e., >=6.67)
     interesting_dates = []
+    #debug print kp_matrix
+    #print(kp_matrix)
     for i, date in enumerate(dates):
-        if (kp_matrix[:,i]>5).any():
+        #print(i,date)
+        #print(kp_matrix[:,i])
+        if (kp_matrix[:,i]>=5).any():
             kp5_detected = True
             interesting_dates.append(parse_and_complete_date(date))
-        if (kp_matrix[:,i]>7).any():
+        if (kp_matrix[:,i]>=6.67).any():
             kp7_detected = True
         
         
@@ -455,9 +459,17 @@ def main(check_weather=True, send_email=True, flight_query=True, print_report=Fa
         send_highlight_email(kp5_bool, kp7_bool, text, "yin.tairan@outlook.com")
     # else do nothing
 
+    # debug print to test the time function
+    #today = datetime.now(tz=pytz.utc)
+    #time_now = today.time()
+    #print(time_now)
     if not kp5_bool and not kp7_bool:
-        today = datetime.now()
-        if today.weekday() == 6:
+        today = datetime.now(tz=pytz.utc)
+        time_now = today.time()
+        start_time = datetime.time(7, 0, 0)
+        end_time = datetime.time(12, 0, 0)
+        
+        if today.weekday() == 6 and start_time <= time_now <= end_time:
             send_report_email()
 
 def main_normal():
@@ -481,8 +493,10 @@ def main_debug(arg_list):
     else:
         flight_query = True
 
-    if "report" in arg_list:
+    if "noReport" in arg_list:
         print("Debug mode: the txt report will be printed to terminal")
+        print_report=False
+    else:
         print_report=True
 
     if "failedCase" in arg_list:
