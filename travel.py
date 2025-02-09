@@ -186,7 +186,8 @@ def search_flight(token,origin, destination, departure_date, days=3, max_price=4
         flight_offers = response.json()
         #print(data)
         if not flight_offers.get("data"):
-            raise Exception("未找到符合条件的航班")
+            summary = ("未找到符合条件的航班")
+            return summary, summary
         
         for offer in flight_offers["data"]:
             itinerary = offer['itineraries'][0]
@@ -231,7 +232,8 @@ def search_flight(token,origin, destination, departure_date, days=3, max_price=4
         return short_summary, full_summary
 
     else:
-        raise Exception(f"航班搜索失败: {response.status_code} - {response.text}")
+        summary = (f"航班搜索失败: {response.status_code} - {response.text}")
+        return summary, summary
     
     
 
