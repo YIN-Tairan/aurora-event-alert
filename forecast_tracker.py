@@ -403,7 +403,7 @@ def main(check_weather=True, send_email=True, flight_query=True, print_report=Fa
         weather_report_txt = replace_date_with_annotation(weather_report_txt,date)
 
     if flight_query and check_weather: # flight query requires the js_dict output provided by weather query
-        if not local_flight_info_exist():
+        if True: #not local_flight_info_exist():
             short_summary = datetime.now(pytz.timezone('utc')).date().strftime("%Y-%m-%d") + "\n"
             long_summary = datetime.now(pytz.timezone('utc')).date().strftime("%Y-%m-%d") + "\n"
             origin = "CDG" # The default departure airport is CDG
