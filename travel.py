@@ -242,12 +242,14 @@ def flight_query(origin,dst,starting_dates, range_of_days, token=get_access_toke
     requests_number = len(starting_dates) * len(range_of_days)
     email_report=f"Flight offer between {origin} and {dst}: \n"+"Email version (for full report, check on the server)\n" + "="*30 +"\n"
     full_report=f"Flight offer between {origin} and {dst}: \n" + "Full report\n" + "="*30 + "\n"
-
+    warn_txt = ""
     for date in starting_dates:
         if date == datetime.now(timezone).strftime("%Y-%m-%d"):
             warn_txt += f"Warning: You're trying to search a flight departing on the same day you are right now: {date}\n"
         #email_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
         #full_report += "*" * 30 + "\n" + " "*7 + f"Date: {date}\n" + "*"*30 + "\n"
+        email_report += warn_txt
+        full_report += warn_txt
         for duration in range_of_days:
             email_report += "*" * 30 + "\n" + f"Departure: {date}, stay {duration} days\n" + "*"*30 + "\n"
             full_report += "*" * 30 + "\n" + f"Departure: {date}, stay {duration} days\n" + "*"*30 + "\n"
