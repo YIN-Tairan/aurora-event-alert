@@ -162,13 +162,13 @@ def process_segments_and_duration(itinerary):
     
     
 # service function
-def search_flight(token,origin, destination, departure_date, days=3, max_price=450, max_layover=1, max_duration=15):
+def search_flight(token,origin, destination, departure_date, days=3, max_price=450, max_layover=2, max_duration=15):
     FLIGHT_SEARCH_URL = "https://test.api.amadeus.com/v2/shopping/flight-offers"
     # 计算返程日期范围
     departure_date_obj = parse(departure_date)
     return_date_start = departure_date_obj + timedelta(days=days)
     #return_date_end = departure_date_obj + timedelta(days=max_days)
-    
+
     # 调用航班搜索 API
     headers = {"Authorization": f"Bearer {token}"}
     params = {
@@ -233,6 +233,7 @@ def search_flight(token,origin, destination, departure_date, days=3, max_price=4
 
     else:
         summary = (f"航班搜索失败: {response.status_code} - {response.text}")
+        
         return summary, summary
     
     
@@ -289,8 +290,8 @@ if __name__ == "__main__":
     #print(f"目的地机场代码: {destination}")
     # Step 3: 搜索最低价航班
     #[short_result, full_result] = search_flight(origin, destination, departure_date, token=token)
-    #[short_result, full_result,requests_count] = flight_query(origin, destination, [departure_date], [3,5])
-    #print(short_result)
+    [short_result, full_result,requests_count] = flight_query(origin, destination, [departure_date], [3])
+    print(short_result)
     #import time
     #time.sleep(180)
     #print(f"total request count: {requests_count}")
