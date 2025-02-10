@@ -14,6 +14,7 @@ SMTP_PORT = 587
 EMAIL_USER = "tairan.yin.csdr@gmail.com"
 
 RECIPIENT_EMAIL = "optimus.pascal.yin@gmail.com"     # 接收警报的邮箱
+RECIPIENT_EMAIL2 = "yin.tairan.ps@outlook.com"
 
 def load_email_pwd(file_path):
     with open(file_path, "r") as file:
@@ -101,6 +102,7 @@ def send_alert_email(event_count, event_text):
             server.starttls()
             server.login(EMAIL_USER, EMAIL_PASSWORD)
             server.sendmail(EMAIL_USER, RECIPIENT_EMAIL, msg.as_string())
+            server.sendmail(EMAIL_USER, RECIPIENT_EMAIL2, msg.as_string())
         print("Alert email sent successfully.")
     except Exception as e:
         print(f"Failed to send email: {e}")
