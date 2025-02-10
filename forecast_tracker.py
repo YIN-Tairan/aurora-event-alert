@@ -2,7 +2,7 @@
 import requests
 import re
 import csv
-from datetime import datetime, timedelta, date
+from datetime import datetime, timedelta, date, time
 import pytz
 import os
 import smtplib
@@ -466,8 +466,8 @@ def main(check_weather=True, send_email=True, flight_query=True, print_report=Fa
     if not kp5_bool and not kp7_bool:
         today = datetime.now(tz=pytz.utc)
         time_now = today.time()
-        start_time = datetime.time(7, 0, 0)
-        end_time = datetime.time(12, 0, 0)
+        start_time = time(7, 0, 0)
+        end_time = time(12, 0, 0)
         
         if today.weekday() == 6 and start_time <= time_now <= end_time:
             send_report_email()
