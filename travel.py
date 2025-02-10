@@ -2,6 +2,7 @@ import requests
 import pandas as pd
 import json
 from datetime import datetime, timedelta
+import time
 from dateutil.parser import parse
 import pytz
 import argparse
@@ -257,6 +258,8 @@ def flight_query(origin,dst,starting_dates, range_of_days, token=get_access_toke
             email_report += "*" * 30 + "\n" + f"Departure: {date}, stay {duration} days\n" + "*"*30 + "\n"
             full_report += "*" * 30 + "\n" + f"Departure: {date}, stay {duration} days\n" + "*"*30 + "\n"
             [short_summary, full_summary] = search_flight(token, origin, dst, date, duration)
+            # sleep 0.2 second to avoid frequency limits
+            time.sleep(0.2)
 
             email_report += short_summary
             email_report += "#"*30 +"\n"
