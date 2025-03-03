@@ -281,7 +281,7 @@ if __name__ == "__main__":
 
     #try:
         # 输入参数
-    origin = "CDG"  # 巴黎
+    origin = "BCN" #"CDG"  # 巴黎
     destination = "KEF"
     destination_city = "Reykjavik"#input("请输入目的地城市名称（例如 London）：")
     timezone = pytz.timezone('UTC')
