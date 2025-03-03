@@ -456,7 +456,7 @@ def main(check_weather=True, send_email=True, flight_query=True, print_report=Fa
     # end
     if send_email:
         send_highlight_email(kp5_bool, kp7_bool, text, MailInfo.default_receiver_email)
-        send_highlight_email(kp5_bool, kp7_bool, text, "yin.tairan@outlook.com")
+        send_highlight_email(kp5_bool, kp7_bool, text, "yin.tairan.ps@outlook.com")
     # else do nothing
 
     # debug print to test the time function
