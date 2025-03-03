@@ -406,7 +406,7 @@ def main(check_weather=True, send_email=True, flight_query=True, print_report=Fa
         if True: #not local_flight_info_exist():
             short_summary = datetime.now(pytz.timezone('utc')).date().strftime("%Y-%m-%d") + "\n"
             long_summary = datetime.now(pytz.timezone('utc')).date().strftime("%Y-%m-%d") + "\n"
-            origin = "CDG" # The default departure airport is CDG
+            origin = "BCN" #"CDG" # The default departure airport is CDG
             dst_airport_code = flight_query_js_process(locations_js)
             duration = [3,4,5]
             start_dates = []
