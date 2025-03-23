@@ -74,7 +74,8 @@ def arriving_solar_wind(db_path="aurora_data.db", timezone="UTC"):
             "longitude": "Longitude of the measurement.",
             "forecast": "Forecast time.",
             "north_hemi_power_index": "North Hemispheric Power Index (GigaWatts).",
-            "south_hemi_power_index": "South Hemispheric Power Index (GigaWatts)."
+            "south_hemi_power_index": "South Hemispheric Power Index (GigaWatts).",
+            "realtime_kp": "Real-time Kp."
         }
 
         # 返回结果

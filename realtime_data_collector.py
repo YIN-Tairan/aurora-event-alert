@@ -28,6 +28,41 @@ COLUMNS_MAG = [
     "Status", "Bx", "By", "Bz", "Bt", "Latitude", "Longitude"
 ]
 
+COLUMNS_KP_REALTIME = [
+    "Time_Tag", "Kp"
+]
+
+def add_realtime_kp_column(database_path):
+    """
+    给数据库中表 aurora_data 添加新列 realtime_kp（类型为 REAL），
+    如果该列已经存在，则不执行添加操作。
+    
+    参数:
+        database_path (str): SQLite 数据库文件路径。
+    """
+    try:
+        conn = sqlite3.connect(database_path)
+        cursor = conn.cursor()
+
+        # 获取 aurora_data 表的结构信息
+        cursor.execute("PRAGMA table_info(aurora_data)")
+        columns = [row[1] for row in cursor.fetchall()]
+
+        # 检查是否存在 realtime_kp 列
+        if "realtime_kp" not in columns:
+            cursor.execute("ALTER TABLE aurora_data ADD COLUMN realtime_kp REAL")
+            print("成功添加新列 'realtime_kp'.")
+        else:
+            print("列 'realtime_kp' 已经存在，无需添加。")
+
+        conn.commit()
+    except sqlite3.Error as e:
+        print("SQLite 错误:", e)
+    except Exception as e:
+        print("其他错误:", e)
+    finally:
+        if conn:
+            conn.close()
 
 def load_text_file(url):
     response = requests.get(url)
@@ -62,10 +97,11 @@ def extract_txt_table(txt, columns):
     data = data.dropna(how="all")
     return data
 
-def merge_txt_data(data1, data2, data3):
+def merge_txt_data(data1, data2, data3, data4):
     data1["Datetime"] = pd.to_datetime(data1[["Year", "Month", "Day"]].astype(str).agg("-".join, axis=1) + " " + data1["Time"].astype(str).str.zfill(4), format="%Y-%m-%d %H%M")
     data2["Datetime"] = pd.to_datetime(data2[["Year", "Month", "Day"]].astype(str).agg("-".join, axis=1) + " " + data2["Time"].astype(str).str.zfill(4), format="%Y-%m-%d %H%M")
     data3["Observation"] = pd.to_datetime(data3["Observation"], format="%Y-%m-%d_%H:%M")
+    data4["Time_Tag"] = pd.to_datetime(data4["Time_Tag"], format="%Y-%m-%dT%H:%M:%S")
 
     data1 = data1.drop(columns=["Year", "Month", "Day", "Time"])
     data2 = data2.drop(columns=["Year", "Month", "Day", "Time", "Modified Julian Day", "Seconds of Day"])
@@ -81,9 +117,11 @@ def merge_txt_data(data1, data2, data3):
     # 按时间戳合并数据
     merged_data = base_df.merge(data1, on="Datetime", how="left") \
                          .merge(data2, on="Datetime", how="left") \
-                         .merge(data3, left_on="Datetime", right_on="Observation", how="left")
+                         .merge(data3, left_on="Datetime", right_on="Observation", how="left") \
+                         .merge(data4, left_on="Datetime", right_on="Time_Tag", how="left")
     
     merged_data= merged_data.drop(columns=["Observation"])
+    merged_data= merged_data.drop(columns=["Time_Tag"])
 
     # 填充缺失值（如极光数据每5分钟记录一次，可用插值法补全）
     #merged_data.interpolate(method="linear", inplace=True)
@@ -99,8 +137,8 @@ def insert_data_ignore(data, db_path="aurora_data.db"):
     INSERT OR IGNORE INTO aurora_data (
         datetime, modified_julian_day, seconds_of_day, status_x,
         proton_density, bulk_speed, ion_temperature, status_y, bx, by, bz, bt,
-        latitude, longitude, forecast, north_hemi_power_index, south_hemi_power_index
-    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+        latitude, longitude, forecast, north_hemi_power_index, south_hemi_power_index, realtime_kp
+    ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
     """
     # 将 DataFrame 转换为元组列表
     values = [
@@ -108,7 +146,7 @@ def insert_data_ignore(data, db_path="aurora_data.db"):
             row["datetime"], row["modified_julian_day"], row["seconds_of_day"], row["Status_x"],
             row["proton_density"], row["bulk_speed"], row["ion_temperature"], row["Status_y"], row["bx"], row["by"],
             row["bz"], row["bt"], row["latitude"], row["longitude"], row["forecast"],
-            row["north_hemi_power_index"], row["south_hemi_power_index"]
+            row["north_hemi_power_index"], row["south_hemi_power_index"], row["realtime_kp"]
         )
         for _, row in data.iterrows()
     ]
@@ -128,9 +166,15 @@ if __name__ == "__main__":
     data_mag = load_text_file(p_mag)
     data_mag_lines = crop_txt_header(data_mag)
     data2 = extract_txt_table(data_mag_lines, COLUMNS_MAG)
+
+    data_realtime_kp = load_json_file(p_1min_kp_planetary)
+    data_table = [[entry['time_tag'], entry['kp']] for entry in data_realtime_kp]
+    data4 = pd.DataFrame(data_table, columns=COLUMNS_KP_REALTIME)
+    
+
     #for line in txt:
     #    print(line)
-    merged_data = merge_txt_data(data1,data2,data3)
+    merged_data = merge_txt_data(data1,data2,data3, data4)
 
     #print(merged_data.head())
 
@@ -153,10 +197,13 @@ if __name__ == "__main__":
         "Longitude": "longitude",
         "Forecast": "forecast",
         "North-Hemispheric-Power-Index (GigaWatts)": "north_hemi_power_index",
-        "South-Hemispheric-Power-Index (GigaWatts)": "south_hemi_power_index"
+        "South-Hemispheric-Power-Index (GigaWatts)": "south_hemi_power_index",
+        "Kp": "realtime_kp"
+
     }, inplace=True)
 
-
+    # 为数据库添加新列
+    add_realtime_kp_column("aurora_data.db")
 
     conn = sqlite3.connect("aurora_data.db")
 
@@ -180,7 +227,8 @@ if __name__ == "__main__":
         longitude REAL,
         forecast TEXT,
         north_hemi_power_index REAL,
-        south_hemi_power_index REAL
+        south_hemi_power_index REAL,
+        realtime_kp REAL
     )
     """)
     # debug
