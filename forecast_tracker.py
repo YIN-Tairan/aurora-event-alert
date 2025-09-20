@@ -381,7 +381,7 @@ def local_flight_info_exist():
     return first_line == utc_date
 
 
-def main(check_weather=True, send_email=True, flight_query=True, print_report=False):    
+def main(check_weather=True, send_email=True, flight_query=True, print_report=False, force_kp5=False, force_kp7=False):    
     
     text = ""
     try:
@@ -454,9 +454,17 @@ def main(check_weather=True, send_email=True, flight_query=True, print_report=Fa
     # for debug purpose
     #kp5_bool = True
     # end
+    if force_kp5:
+        kp5_bool = True
+        text = "Warning: This is only a test and the KP5 value has been forced to be true\n"
+    if force_kp7:
+        kp7_bool = True
+        text = "Warning: This is only a test and the KP7 value has been forced to be true\n"
+    
+
     if send_email:
         send_highlight_email(kp5_bool, kp7_bool, text, MailInfo.default_receiver_email)
-        send_highlight_email(kp5_bool, kp7_bool, text, "yin.tairan.ps@outlook.com")
+        send_highlight_email(kp5_bool, kp7_bool, text, "tairan.yin.ps@gmail.com")
     # else do nothing
 
     # debug print to test the time function
@@ -502,8 +510,24 @@ def main_debug(arg_list):
     if "failedCase" in arg_list:
         raise Exception("[Debug] This is an faked error message.")
     
-    
-    main(send_email=sendEmail, check_weather=check_weather, flight_query=flight_query,print_report=print_report)
+    if "forceKP5" in arg_list:
+        print("Debug mode: KP5 forced true for test purpose")
+        force_kp5 = True
+    else:
+        force_kp5 = False
+
+    if "forceKP7" in arg_list:
+        print("Debug mode: KP7 forced true for test purpose")
+        force_kp7 = True
+    else:
+        force_kp7 = False
+
+    main(send_email=sendEmail, 
+         check_weather=check_weather, 
+         flight_query=flight_query,
+         print_report=print_report, 
+         force_kp5=force_kp5, 
+         force_kp7=force_kp7)
     
 
 if __name__ == "__main__":
