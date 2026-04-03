@@ -206,7 +206,7 @@ def collect_ovation_aurora(db_path=OVATION_DB_PATH):
     cursor.execute(
         """
         DELETE FROM ovation_aurora_snapshots
-        WHERE observation_time < datetime('now', '-1 hour')
+        WHERE observation_time < strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-1 hour')
         """
     )
 
