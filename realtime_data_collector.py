@@ -154,7 +154,69 @@ def insert_data_ignore(data, db_path="aurora_data.db"):
     conn.commit()
     conn.close()
 
+OVATION_DB_PATH = "ovation_aurora.db"
+
+def init_ovation_db(db_path=OVATION_DB_PATH):
+    """初始化 ovation aurora 数据库，创建快照表（如不存在）。"""
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+    cursor.execute("""
+    CREATE TABLE IF NOT EXISTS ovation_aurora_snapshots (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        observation_time TEXT NOT NULL UNIQUE,
+        forecast_time TEXT NOT NULL,
+        coordinates TEXT NOT NULL,
+        collected_at TEXT NOT NULL
+    )
+    """)
+    conn.commit()
+    conn.close()
+
+def collect_ovation_aurora(db_path=OVATION_DB_PATH):
+    """
+    从 NOAA 获取 ovation aurora 最新数据并存入数据库。
+    每次调用后自动删除 observation_time 超过一小时的旧记录。
+
+    参数:
+        db_path (str): SQLite 数据库文件路径。
+    """
+    from datetime import datetime, timezone
+
+    data = load_json_file(p_intensity)
+
+    observation_time = data["Observation Time"]
+    forecast_time = data["Forecast Time"]
+    coordinates = json.dumps(data["coordinates"])
+    collected_at = datetime.now(timezone.utc).strftime("%Y-%m-%dT%H:%M:%SZ")
+
+    init_ovation_db(db_path)
+    conn = sqlite3.connect(db_path)
+    cursor = conn.cursor()
+
+    cursor.execute(
+        """
+        INSERT OR IGNORE INTO ovation_aurora_snapshots
+            (observation_time, forecast_time, coordinates, collected_at)
+        VALUES (?, ?, ?, ?)
+        """,
+        (observation_time, forecast_time, coordinates, collected_at),
+    )
+
+    # 删除 observation_time 超过一小时的旧记录
+    cursor.execute(
+        """
+        DELETE FROM ovation_aurora_snapshots
+        WHERE observation_time < datetime('now', '-1 hour')
+        """
+    )
+
+    conn.commit()
+    conn.close()
+    print(f"已存储 ovation aurora 快照：observation_time={observation_time}, forecast_time={forecast_time}")
+
 if __name__ == "__main__":
+    collect_ovation_aurora()
+
     data_nowcast = load_text_file(p_nowcast)
     data_nowcast_lines = crop_txt_header(data_nowcast)
     data3 = extract_txt_table(data_nowcast_lines, COLUMNS_NOWCAST)
