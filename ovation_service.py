@@ -89,6 +89,7 @@ def get_aurora_probability(lat, lon, db_path=OVATION_DB_PATH):
     now = datetime.now(timezone.utc)
     t_window_start = now - timedelta(minutes=15)
     t_window_end = now + timedelta(hours=1)
+    t_obs_cutoff = now - timedelta(hours=1)
 
     # Longitude: wrap to [0, 359]
     lon_grid = lon % 360
@@ -102,12 +103,13 @@ def get_aurora_probability(lat, lon, db_path=OVATION_DB_PATH):
         """
         SELECT forecast_time, coordinates
         FROM ovation_aurora_snapshots
-        WHERE observation_time >= strftime('%Y-%m-%dT%H:%M:%SZ', 'now', '-1 hour')
+        WHERE observation_time >= ?
           AND forecast_time >= ?
           AND forecast_time <= ?
         ORDER BY forecast_time
         """,
         (
+            t_obs_cutoff.strftime("%Y-%m-%dT%H:%M:%SZ"),
             t_window_start.strftime("%Y-%m-%dT%H:%M:%SZ"),
             t_window_end.strftime("%Y-%m-%dT%H:%M:%SZ"),
         ),
