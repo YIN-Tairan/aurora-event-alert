@@ -10,6 +10,45 @@ import pytz
 _POLE_LAT_RAD = math.radians(80.65)
 _POLE_LON_RAD = math.radians(-72.68)
 
+# Prediction time horizons (minutes / data points at 1-min resolution)
+HORIZON_5MIN  = 5
+HORIZON_30MIN = 30
+HORIZON_1HR   = 60
+
+# Physical clamping bounds for extrapolated values
+BZ_MIN    = -50.0   # nT
+BZ_MAX    =  50.0   # nT
+SPEED_MIN =  200.0  # km/s
+SPEED_MAX = 1500.0  # km/s
+NHPI_MIN  =    0.0  # GW
+NHPI_MAX  = 1000.0  # GW
+
+# Kp estimation weights (must sum to 1.0)
+# Based on empirical literature: Bz dominates (~60 %), speed and NHPI secondary
+KP_BZ_WEIGHT    = 0.6
+KP_SPEED_WEIGHT = 0.2
+KP_NHPI_WEIGHT  = 0.2
+
+# Empirical coefficients for Kp sub-scores
+BZ_TO_KP_COEFF    = 0.6   # maps |Bz| (nT) → Kp contribution; -15 nT ≈ Kp 9
+SPEED_KP_SCALE    = 100.0 # km/s above 400 per Kp unit
+NHPI_KP_SCALE     = 20.0  # GW per Kp unit
+
+# Aurora visibility: auroral oval latitude model
+# Minimum visible geomagnetic latitude ≈ BASE_LAT − Kp × KP_LAT_COEFF
+BASE_GEOMAG_LAT  = 67.0   # degrees — quiet-time lower edge of auroral oval
+KP_LAT_COEFF     =  3.0   # degrees latitude shift per Kp unit
+MIN_GEOMAG_LAT   = 40.0   # hard floor (auroral oval never reaches lower latitudes)
+
+# Sigmoid steepness for probability conversion (degrees of latitude)
+SIGMOID_STEEPNESS = 5.0
+
+# Blending weights for Kp prediction at each horizon
+# (estimated_kp_weight, realtime_kp_weight)
+KP_5MIN_BLEND    = (0.7, 0.3)  # short horizon → trust estimates, validate with realtime
+KP_30MIN_BLEND   = (0.6, 0.4)  # medium horizon → moderate trust in realtime
+KP_1HR_BLEND     = (0.5, 0.5)  # long horizon → equal weight
+
 
 # ---------------------------------------------------------------------------
 # Database helpers
@@ -220,24 +259,24 @@ def estimate_kp_from_conditions(bz, bulk_speed, nhpi):
     # Bz contribution — only negative (southward) Bz drives geomagnetic activity
     bz_kp = 0.0
     if bz is not None and bz < 0:
-        bz_kp = min(abs(bz) * 0.6, 9.0)
+        bz_kp = min(abs(bz) * BZ_TO_KP_COEFF, 9.0)
 
     # Solar wind speed contribution
     speed_kp = 0.0
     if bulk_speed is not None and bulk_speed > 400:
-        speed_kp = min((bulk_speed - 400) / 100.0, 3.0)
+        speed_kp = min((bulk_speed - 400) / SPEED_KP_SCALE, 3.0)
 
     # NHPI contribution
     nhpi_kp = 0.0
     if nhpi is not None and nhpi > 0:
-        nhpi_kp = min(nhpi / 20.0, 3.0)
+        nhpi_kp = min(nhpi / NHPI_KP_SCALE, 3.0)
 
-    return min(max(0.6 * bz_kp + 0.2 * speed_kp + 0.2 * nhpi_kp, 0.0), 9.0)
+    return min(max(KP_BZ_WEIGHT * bz_kp + KP_SPEED_WEIGHT * speed_kp + KP_NHPI_WEIGHT * nhpi_kp, 0.0), 9.0)
 
 
 def _min_geomag_lat_for_kp(kp):
     """Return the minimum geomagnetic latitude (degrees) for aurora visibility at the given Kp."""
-    return max(40.0, 67.0 - kp * 3.0)
+    return max(MIN_GEOMAG_LAT, BASE_GEOMAG_LAT - kp * KP_LAT_COEFF)
 
 
 def _kp_to_aurora_probability(kp, observer_geomag_lat):
@@ -258,7 +297,7 @@ def _kp_to_aurora_probability(kp, observer_geomag_lat):
     obs_lat = abs(observer_geomag_lat)
     min_lat = _min_geomag_lat_for_kp(kp)
     delta = obs_lat - min_lat  # positive ↔ observer is at or above the auroral oval
-    return round(1.0 / (1.0 + math.exp(-delta / 5.0)), 3)
+    return round(1.0 / (1.0 + math.exp(-delta / SIGMOID_STEEPNESS)), 3)
 
 
 def _probability_label(prob):
@@ -342,35 +381,35 @@ def predict_aurora(geo_lat, geo_lon, db_path="aurora_data.db"):
         return max(lo, min(hi, v)) if v is not None else None
 
     # ---- 5-minute prediction ----
-    # Extrapolate current values by 5 data points (≈ 5 min)
-    bz_5    = _clamp((cur_bz    + bz_trend    * 5) if cur_bz    is not None else avg_bz,    -50, 50)
-    spd_5   = _clamp((cur_speed + speed_trend * 5) if cur_speed is not None else avg_speed, 200, 1500)
-    nhpi_5  = _clamp((cur_nhpi  + nhpi_trend  * 5) if cur_nhpi  is not None else avg_nhpi,    0, 1000)
+    # Extrapolate current values by HORIZON_5MIN data points (≈ 5 min)
+    bz_5    = _clamp((cur_bz    + bz_trend    * HORIZON_5MIN) if cur_bz    is not None else avg_bz,    BZ_MIN, BZ_MAX)
+    spd_5   = _clamp((cur_speed + speed_trend * HORIZON_5MIN) if cur_speed is not None else avg_speed, SPEED_MIN, SPEED_MAX)
+    nhpi_5  = _clamp((cur_nhpi  + nhpi_trend  * HORIZON_5MIN) if cur_nhpi  is not None else avg_nhpi,  NHPI_MIN, NHPI_MAX)
     kp_5 = estimate_kp_from_conditions(bz_5, spd_5, nhpi_5)
     if cur_kp is not None:
-        kp_5 = 0.7 * kp_5 + 0.3 * cur_kp
+        kp_5 = KP_5MIN_BLEND[0] * kp_5 + KP_5MIN_BLEND[1] * cur_kp
 
     # ---- 30-minute prediction ----
-    # Extrapolate current values by 30 data points, then blend with the average
-    bz_30   = _clamp((cur_bz    + bz_trend    * 30) if cur_bz    is not None else avg_bz,    -50, 50)
-    spd_30  = _clamp((cur_speed + speed_trend * 30) if cur_speed is not None else avg_speed, 200, 1500)
-    nhpi_30 = _clamp((cur_nhpi  + nhpi_trend  * 30) if cur_nhpi  is not None else avg_nhpi,    0, 1000)
+    # Extrapolate current values by HORIZON_30MIN data points, then blend with the average
+    bz_30   = _clamp((cur_bz    + bz_trend    * HORIZON_30MIN) if cur_bz    is not None else avg_bz,    BZ_MIN, BZ_MAX)
+    spd_30  = _clamp((cur_speed + speed_trend * HORIZON_30MIN) if cur_speed is not None else avg_speed, SPEED_MIN, SPEED_MAX)
+    nhpi_30 = _clamp((cur_nhpi  + nhpi_trend  * HORIZON_30MIN) if cur_nhpi  is not None else avg_nhpi,  NHPI_MIN, NHPI_MAX)
     kp_30_trend = estimate_kp_from_conditions(bz_30, spd_30, nhpi_30)
     kp_30_avg   = estimate_kp_from_conditions(avg_bz, avg_speed, avg_nhpi)
     kp_30 = 0.5 * kp_30_trend + 0.5 * kp_30_avg
     if cur_kp is not None:
-        kp_30 = 0.6 * kp_30 + 0.4 * cur_kp
+        kp_30 = KP_30MIN_BLEND[0] * kp_30 + KP_30MIN_BLEND[1] * cur_kp
 
     # ---- 1-hour prediction ----
     # Average dominates; trend adds directional signal only
-    bz_60   = _clamp((avg_bz    + bz_trend    * 60) if avg_bz    is not None else None, -50, 50)
-    spd_60  = _clamp((avg_speed + speed_trend * 60) if avg_speed is not None else None, 200, 1500)
-    nhpi_60 = _clamp((avg_nhpi  + nhpi_trend  * 60) if avg_nhpi  is not None else None,   0, 1000)
+    bz_60   = _clamp((avg_bz    + bz_trend    * HORIZON_1HR) if avg_bz    is not None else None, BZ_MIN, BZ_MAX)
+    spd_60  = _clamp((avg_speed + speed_trend * HORIZON_1HR) if avg_speed is not None else None, SPEED_MIN, SPEED_MAX)
+    nhpi_60 = _clamp((avg_nhpi  + nhpi_trend  * HORIZON_1HR) if avg_nhpi  is not None else None, NHPI_MIN, NHPI_MAX)
     kp_60_trend = estimate_kp_from_conditions(bz_60, spd_60, nhpi_60)
     kp_60_avg   = estimate_kp_from_conditions(avg_bz, avg_speed, avg_nhpi)
     kp_60 = 0.3 * kp_60_trend + 0.7 * kp_60_avg
     if cur_kp is not None:
-        kp_60 = 0.5 * kp_60 + 0.5 * cur_kp
+        kp_60 = KP_1HR_BLEND[0] * kp_60 + KP_1HR_BLEND[1] * cur_kp
 
     # Convert estimated Kp to visibility probability
     prob_5  = _kp_to_aurora_probability(kp_5,  geomag_lat)
