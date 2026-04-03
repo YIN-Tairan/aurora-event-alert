@@ -58,6 +58,28 @@ def latest_hour_data(db_path="aurora_data.db", timezone="UTC"):
     """
     Query aurora_data table for the most recent hour of records.
 
+    Database field reference (aurora_data table):
+        id                     – Primary key, unique identifier for the entry.
+        datetime               – The datetime of the observation.
+        modified_julian_day    – Modified Julian Day.
+        seconds_of_day         – Seconds of the day.
+        status                 – Status code for the data quality.
+        proton_density         – Proton density (p/cc).
+        bulk_speed             – Bulk speed (km/s).
+        ion_temperature        – Ion temperature (K).
+        bx                     – Magnetic field Bx component (nT).
+        by                     – Magnetic field By component (nT).
+        bz                     – Magnetic field Bz component (nT).
+        bt                     – Magnetic field total strength (nT).
+        latitude               – Latitude of the measurement.
+        longitude              – Longitude of the measurement.
+        forecast               – Forecast time.
+        north_hemi_power_index – North Hemispheric Power Index (GigaWatts).
+        south_hemi_power_index – South Hemispheric Power Index (GigaWatts).
+        realtime_kp            – Real-time Kp index.
+
+    Note: NOAA instruments record -9999 (or -999) for unavailable measurements.
+
     Args:
         db_path (str): SQLite database file path.
         timezone (str): Target timezone for datetime conversion (e.g. "UTC" or "Asia/Shanghai").
@@ -204,12 +226,22 @@ def compute_geomagnetic_latitude(geo_lat, geo_lon):
 # ---------------------------------------------------------------------------
 
 def _safe_floats(rows, field):
-    """Extract non-None float values for *field* from a list of row dicts."""
+    """
+    Extract valid float values for *field* from a list of row dicts.
+
+    NOAA instruments record -9999 (and sometimes -999) as a sentinel for
+    unavailable or failed measurements.  These are excluded so that erroneous
+    values do not corrupt trend calculations or averages.
+    """
     vals = []
     for r in rows:
         v = r.get(field)
         try:
-            vals.append(float(v))
+            f = float(v)
+            # Filter NOAA error sentinels (-9999, -999)
+            if f <= -999:
+                continue
+            vals.append(f)
         except (TypeError, ValueError):
             pass
     return vals
