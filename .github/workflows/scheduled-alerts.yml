@@ -1,0 +1,64 @@
+name: Scheduled Aurora Alerts
+
+on:
+  # Run every 3 hours
+  schedule:
+    - cron: '0 */3 * * *'
+  # Allow manual triggering from the Actions tab
+  workflow_dispatch:
+
+jobs:
+  halo-cme-alert:
+    name: Halo CME Alert Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests beautifulsoup4
+
+      - name: Create credentials file
+        # Requires a GitHub repository secret named SMTP_PASSWORD
+        run: |
+          echo '{"smtppwd": "${{ secrets.SMTP_PASSWORD }}"}' > keypwd.json
+
+      - name: Run Halo CME Alert
+        run: python halo_cme_alert.py
+
+      - name: Upload CME database artifact
+        uses: actions/upload-artifact@v4
+        if: always()
+        with:
+          name: cme-alerts-db-${{ github.run_number }}
+          path: cme_alerts.db
+          retention-days: 7
+
+  kp-forecast-alert:
+    name: KP Forecast Alert Check
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install requests
+
+      - name: Run KP Forecast Check
+        # Uses hardcoded credentials from test.py; for production use, move
+        # credentials to GitHub Secrets and load them via environment variables.
+        run: python test.py
