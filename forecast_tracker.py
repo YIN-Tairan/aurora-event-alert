@@ -20,6 +20,10 @@ class KPForecastError(Exception):
     pass
 
 def load_email_pwd(file_path):
+    # Prefer the SMTP_PASSWORD environment variable; fall back to keypwd.json
+    env_pwd = os.environ.get("SMTP_PASSWORD")
+    if env_pwd:
+        return env_pwd
     with open(file_path, "r") as file:
         data = json.load(file)
     return data["smtppwd"]
