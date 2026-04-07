@@ -147,7 +147,7 @@ def get_kp_forecast():
     kp_values_pattern = r'(?:\d{2}-\d{2}UT.*?)\n\n'
     kp_values_match = re.findall(kp_values_pattern, kp_section_text, re.DOTALL)
     if not kp_values_match:
-        raise KPForCastError("无法找到KP值表格")
+        raise KPForecastError("无法找到KP值表格")
 
     kp_table_text = kp_values_match[0]
 
@@ -181,8 +181,8 @@ def get_kp_forecast():
                     #kp_values[date].append(kp_value)
                     try:
                         kp_value = float(kp_string)
-                    except ValueError:
-                        raise KPForecastError(f"Failed to open file: {e}")
+                    except ValueError as e:
+                        raise KPForecastError(f"Failed to parse KP value as float: {e}")
 
                     if kp_value>=5:
                         kp5_detected = True
