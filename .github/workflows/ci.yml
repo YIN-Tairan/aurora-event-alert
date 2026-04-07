@@ -43,8 +43,38 @@ jobs:
           flake8 . --count --exit-zero --max-line-length=127 --statistics \
             --exclude=__pycache__,.git
 
+  # 新增：检测具体是哪些文件发生了变动
+  detect-changes:
+    name: Detect Changed Files
+    runs-on: ubuntu-latest
+    outputs:
+      forecast: ${{ steps.filter.outputs.forecast }}
+      halo_cme: ${{ steps.filter.outputs.halo_cme }}
+      realtime_data: ${{ steps.filter.outputs.realtime_data }}
+      sentinel: ${{ steps.filter.outputs.sentinel }}
+    steps:
+      - uses: actions/checkout@v4
+      
+      - uses: dorny/paths-filter@v3
+        id: filter
+        with:
+          filters: |
+            forecast:
+              - 'forecast_tracker.py'
+              - 'Tests/test_forecast_tracker.py'
+            halo_cme:
+              - 'halo_cme_alert.py'
+              - 'Tests/test_halo_cme_alert.py'
+            realtime_data:
+              - 'realtime_data_collector.py'
+              - 'Tests/test_realtime_data_collector.py'
+            sentinel:
+              - 'sentinel_service.py'
+              - 'Tests/test_sentinel_service.py'
+
   test:
     name: Run Tests
+    needs: detect-changes # 依赖于检测任务
     runs-on: ubuntu-latest
 
     steps:
@@ -60,9 +90,28 @@ jobs:
           python -m pip install --upgrade pip
           pip install pytest requests beautifulsoup4 pandas numpy pytz python-dateutil
 
-      - name: Run tests in Tests/
+      # 下面的测试步骤根据 detect-changes 的结果按需执行
+
+      - name: Run tests for forecast_tracker
+        if: needs.detect-changes.outputs.forecast == 'true'
         env:
-          # Provide a dummy SMTP password so modules that load credentials at
-          # import time do not fail when keypwd.json is absent in CI.
           SMTP_PASSWORD: dummy
-        run: pytest Tests/ -v
+        run: pytest Tests/test_forecast_tracker.py -v
+
+      - name: Run tests for halo_cme_alert
+        if: needs.detect-changes.outputs.halo_cme == 'true'
+        env:
+          SMTP_PASSWORD: dummy
+        run: pytest Tests/test_halo_cme_alert.py -v
+
+      - name: Run tests for realtime_data_collector
+        if: needs.detect-changes.outputs.realtime_data == 'true'
+        env:
+          SMTP_PASSWORD: dummy
+        run: pytest Tests/test_realtime_data_collector.py -v
+
+      - name: Run tests for sentinel_service
+        if: needs.detect-changes.outputs.sentinel == 'true'
+        env:
+          SMTP_PASSWORD: dummy
+        run: pytest Tests/test_sentinel_service.py -v
