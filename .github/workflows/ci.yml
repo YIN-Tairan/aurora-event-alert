@@ -1,10 +1,16 @@
 name: CI
-
+# TODO: 使用mock方法支持对于天气数据和航班数据的单元测试，避免每次测试都依赖外部API的可用性和数据变化
 on:
   push:
     branches: [ main, master ]
+    paths:
+      - '**.py'
+      - 'Tests/**.py'
   pull_request:
     branches: [ main, master ]
+    paths:
+      - '**.py'
+      - 'Tests/**.py'
 
 permissions:
   contents: read
@@ -42,6 +48,76 @@ jobs:
           # Report style issues as warnings without failing the build
           flake8 . --count --exit-zero --max-line-length=127 --statistics \
             --exclude=__pycache__,.git
+
+  smoke-forecast-tracker:
+    name: Smoke Test forecast_tracker
+    needs: lint
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements.txt
+          pip install timezonefinder
+
+      - name: Run smoke test and inspect output
+        id: smoke
+        run: |
+          set +e
+          python forecast_tracker.py -d noEmail noWeather noFlight noReport > smoke_forecast_tracker.log 2>&1
+          EXIT_CODE=$?
+          set -e
+
+          if grep -Eiq "traceback|error|exception|failed" smoke_forecast_tracker.log; then
+            HAS_ERROR_TEXT=1
+          else
+            HAS_ERROR_TEXT=0
+          fi
+
+          echo "exit_code=$EXIT_CODE" >> "$GITHUB_OUTPUT"
+
+          if [ "$EXIT_CODE" -ne 0 ] || [ "$HAS_ERROR_TEXT" -eq 1 ]; then
+            echo "smoke_failed=true" >> "$GITHUB_OUTPUT"
+            echo "Smoke test failed. exit_code=$EXIT_CODE, has_error_text=$HAS_ERROR_TEXT"
+            exit 1
+          fi
+
+          echo "smoke_failed=false" >> "$GITHUB_OUTPUT"
+          echo "Smoke test passed."
+
+      - name: Send error email on smoke failure
+        if: always() && steps.smoke.outputs.smoke_failed == 'true'
+        uses: dawidd6/action-send-mail@v3
+        with:
+          server_address: ${{ secrets.SMTP_SERVER }}
+          server_port: ${{ secrets.SMTP_PORT }}
+          username: ${{ secrets.SMTP_USERNAME }}
+          password: ${{ secrets.SMTP_PASSWORD }}
+          subject: "[CI][Smoke Failed] forecast_tracker.py"
+          to: ${{ secrets.CI_ALERT_TO }}
+          from: ${{ secrets.CI_ALERT_FROM }}
+          body: |
+            forecast_tracker.py smoke test failed in CI.
+            Repository: ${{ github.repository }}
+            Branch: ${{ github.ref_name }}
+            Commit: ${{ github.sha }}
+            Workflow Run: ${{ github.server_url }}/${{ github.repository }}/actions/runs/${{ github.run_id }}
+            Exit code: ${{ steps.smoke.outputs.exit_code }}
+
+      - name: Upload smoke log
+        if: always()
+        uses: actions/upload-artifact@v4
+        with:
+          name: smoke-forecast-tracker-log
+          path: smoke_forecast_tracker.log
 
   # 新增：检测具体是哪些文件发生了变动
   detect-changes:
