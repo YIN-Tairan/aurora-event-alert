@@ -6,6 +6,7 @@ import sqlite3
 import smtplib
 from email.mime.text import MIMEText
 import json
+import os
 
 # 配置信息
 URL = "https://sidc.be/products/cactus/"  # 目标网页 URL
@@ -17,6 +18,10 @@ RECIPIENT_EMAIL = "optimus.pascal.yin@gmail.com"     # 接收警报的邮箱
 RECIPIENT_EMAIL2 = "yin.tairan.ps@outlook.com"
 
 def load_email_pwd(file_path):
+    # Prefer the SMTP_PASSWORD environment variable; fall back to keypwd.json
+    env_pwd = os.environ.get("SMTP_PASSWORD")
+    if env_pwd:
+        return env_pwd
     with open(file_path, "r") as file:
         data = json.load(file)
     return data["smtppwd"]

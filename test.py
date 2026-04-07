@@ -180,7 +180,7 @@ def get_kp_forecast():
                     try:
                         kp_value = float(kp_string)
                     except ValueError as e:
-                        raise KPForecastError(f"Failed to open file: {e}")
+                        raise KPForecastError(f"Failed to parse KP value as float: {e}")
 
                     if kp_value>=5:
                         kp5_detected = True

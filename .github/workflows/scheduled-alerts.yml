@@ -7,6 +7,9 @@ on:
   # Allow manual triggering from the Actions tab
   workflow_dispatch:
 
+permissions:
+  contents: read
+
 jobs:
   halo-cme-alert:
     name: Halo CME Alert Check
@@ -25,12 +28,9 @@ jobs:
           python -m pip install --upgrade pip
           pip install requests beautifulsoup4
 
-      - name: Create credentials file
-        # Requires a GitHub repository secret named SMTP_PASSWORD
-        run: |
-          echo '{"smtppwd": "${{ secrets.SMTP_PASSWORD }}"}' > keypwd.json
-
       - name: Run Halo CME Alert
+        env:
+          SMTP_PASSWORD: ${{ secrets.SMTP_PASSWORD }}
         run: python halo_cme_alert.py
 
       - name: Upload CME database artifact
