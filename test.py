@@ -7,6 +7,8 @@ import smtplib
 from email.mime.text import MIMEText
 from email.mime.multipart import MIMEMultipart
 
+from halo_cme_alert import load_email_pwd
+
 
 class KPForecastError(Exception):
     """Custom exception for KP forecast errors"""
@@ -19,7 +21,7 @@ class MailInfo:
     smtp_server = "smtp.gmail.com"
     smtp_port = 587
     smtp_username = sender_email
-    smtp_password = "uxirkaqhkexzyxil"  # 使用 Gmail 应用密码
+    smtp_password = load_email_pwd("keypwd.json")  # 使用 Gmail 应用密码
 
 def send_error_email(error_message, receiver_email):
     # 配置邮件发送
